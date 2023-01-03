@@ -1,0 +1,162 @@
+CS 179: GPU Computing
+Lab 1: Introduction to CUDA
+Name:
+
+================================================================================
+Question 1: Common Errors (20 points)
+================================================================================
+
+--------------------------------------------------------------------------------
+1.1 
+--------------------------------------------------------------------------------
+Issue: Creates an integer pointer, sets the value to which it points to 5, adds 1
+to this value, and prints said value.
+
+Fix: void test1() {
+	// not like "int *a = 5;
+	int *a;
+	*a = 5;
+	*a = *a +1;
+	printf("d%d\n", *a);
+}
+--------------------------------------------------------------------------------
+1.2
+--------------------------------------------------------------------------------
+Issue: Creates two integer pointers and sets the values to which they point to 2
+and 5, respectively.
+
+Fix: void test2(){
+	// int *a, b;
+	Int *a, *b;
+	a = (int *) malloc(sizeof(int));
+	b = (int *) malloc(sizeof(int));
+
+	if(!(a && b) {
+		printf("Out of memory \n");
+		exit(-1);
+	}
+	*a = 2;
+	*b = 5;
+}
+
+--------------------------------------------------------------------------------
+1.3
+--------------------------------------------------------------------------------
+Issue: Allocates an array of 10000 integers, and for i = 0 ... 9999, sets the i-th
+element to i.
+
+Fix: void test3(){
+	// int i, *a = (int *) malloc(10000);
+	int i, *a = (int *) malloc(sizeof(int)*10000);
+	if (!a) {
+		printf("Out of memory\n");
+		exit(-1);
+	}
+	for (i = 0; i< 10000; i++){
+		*(i + a) =i;
+		printf("%d\n",*(i +a))
+	}
+}
+--------------------------------------------------------------------------------
+1.4
+--------------------------------------------------------------------------------
+Issue: Create a two-dimensional array of size 3 x 100, and sets element (1,1) 
+(counting from 0) to 5.
+
+Fix: void test4(){
+	int **a = (int **) malloc(3 * sizeof(int *));
+		for (int i = 0; i< 3; i ++){
+			*(a+i) = (int *)malloc(100 * sizeof(int));
+		}
+	a[1][1] =5;
+}
+
+--------------------------------------------------------------------------------
+1.5
+--------------------------------------------------------------------------------
+Issue: Sets the value pointed to by a to an input, checks if the value pointed to 
+by a is -, and prints a message if it is.
+
+Fix: void test5() {
+	int *a = (int *) malloc(sizeof(int));
+	//scanf("%d", a);
+	cin >> *a;
+	if (!*a)
+		printf("Value is 0\n");
+}
+
+================================================================================
+Question 2: Parallelization (30 points)
+================================================================================
+NVCC and G++ (How to complie the cuda code.
+By Recap, GPU to solve highly parallelizable problems ie. a[] + b [] -> c[]
+It seperate CUDA code into .cu and .cuh files and with compile with nvcc, NVIDIA's
+compiler for CUDA to create object file(.o files)
+And for NVCC, mostly c++ 11/ c++14 language feature . 
+.cpp/ .hpp is complied by g++ and the .o file from the CUDA code is simply
+linked  in using a "#include xxx.cuh" call. (No difference from how linke in .o
+files from normal c++ code.
+--------------------------------------------------------------------------------
+2.1 
+--------------------------------------------------------------------------------
+Given an input signal x[n], suppose we have two output signals y_1[n] and y_2[n],
+given by the difference equations:
+		y_1[n] = x[n-1] + x[n] + x[n+1]
+		y_2[n[ = y_2[n-2] + y_2[n-1] + x[n]
+Which calculation do you expect will have an easier and faster implementation on
+the GPU, and why?
+
+The first output calculation is faster since it does not depend on other output
+elements, but solely on input elements. Therefore, the GPU can concurrently 
+compute all output elements of y_1 without any of the element having the need
+to wait for other y_1 elements to finish calculating. 
+--------------------------------------------------------------------------------
+2.2 
+--------------------------------------------------------------------------------
+How the exponential moving average (EMA), in comparison to the simple moving 
+average (SMA), is much less suited for parallelization on the GPU.
+Recall that the EMA is given by:
+	y[n] = c* x[n] + (1-c) * y[n-1]
+Suppose that c is close to 1, and we only require an approximation to y[n].
+How can we get this approximation in a way that is parallelizable? 
+
+Y[n] can be approximated by solely x[n], since 1-c is close to 0 which makes the
+subsequent y[n-k] terms contribute little to y[n], as k increases
+================================================================================
+Question 3: Small-Kernel Convolution (50 points)
+================================================================================
+Note: The CPU time is actually faster than the GPU time, possible because memcpy
+operations are included time-taking, or maybe the Intel i7-8700K is that fast.
+Trying to increase the data length did not affect the ratio.
+==
+code 
+==
+typedef unsigned int uint; // Need this line else uint is undefined.
+
+while(thread_index < n_frames){ // prevents going over the max num of data points.
+
+
+//TODO: Update the thread index
+thread_index += blockDim.x*gridDim.x;
+
+// Make thread work on the next datapoint. Meaning a thread does not stop working until
+it goes over the max datapoint limit of the while-loop above.
+
+for (int i=0; i <blur_v_size; i++){
+	if(i>thread_index)
+		break;
+	gpu_out_data[thread_index] += gpu_blur_v[i] * gpu_raw_data[thread_index -i];
+	}
+
+===============================
+The if- statement prevents reading negative indices in the data vector, x[-1] etc.
+Remember convolution is moving a sliding window that has been inverted across the data
+vector, summing the products of corresponding elements between the data-vector and 
+inverted filter and writing that Sop into the output vector.
+
+Eg. y[0] = x[0]*h[k]; y[1] = x[1]*h[k-1] + x[0]*h[k] ....
+Also, the filter is a Gaussian blur, since a low-pass filter in frequency domain is a brick-
+wall function. Hence in time-domain it is a Sinc-pulse, which can be approximated by a 
+Gaussian. The rest are standard practises like malloc, memcpy, run the kernel, then free.
+Installing the sndfile library allows WAV file experimentation. The high-pitched 
+violin sounds are attenuated after filtering.
